@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: AWS Cloudformation Tempalte to create a EC2 instance and test EC2Config Service.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Instance Details"
+        Parameters:
+          - NamePrefix
+          - InstanceType
+          - VolumeSize
+          - AMI
+          - Key
+          - SubnetID
+
+Parameters:
+  NamePrefix:
+    Type: String
+    Description: Name prefix for resource naming and tagging.
+  InstanceType:
+    Type: String
+    Description: Instance size use for the EC2 instances.
+    Default: "t2.micro"
+  VolumeSize:
+    Type: String
+    Description: EBS volume size.
+  AMI:
+    Type: String
+    Description: The Amazon Image ID
+  Key:
+    Type: String
+    Description: SSH Key-pair.
+  SubnetID:
+    Type: String
+    Description: Subnet ID to place the Instance.
+
+Resources:
+    #Instance Profile
+    InstanceProfile:
+      Type: AWS::IAM::InstanceProfile
+      Properties:
+        Path: /
+        Roles: [!Ref 'InstanceRole']
+    InstanceRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: !Sub ${NamePrefix}-Role
+        AssumeRolePolicyDocument:
+          Statement:
+          - Effect: Allow
+            Principal:
+              Service: [ec2.amazonaws.com]
+            Action: ['sts:AssumeRole']
+        Path: /
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+          - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+          - arn:aws:iam::aws:policy/AWSCloudFormationReadOnlyAccess
+        Policies:
+          - PolicyName: describe-instance-health-policy
+            PolicyDocument:
+              Statement:
+              - Effect: Allow
+                Action:
+                  - 'EC2:Get*'
+                  - 'EC2:CreateTags'
+                Resource: '*'
+
+    #EC2 Deploy
+    SimpleEC2:
+      Type: "AWS::EC2::Instance"
+      Properties:
+        ImageId: !Ref AMI
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref Key
+        NetworkInterfaces: 
+          - AssociatePublicIpAddress: "false"
+            DeviceIndex: "0"
+            SubnetId: !Ref SubnetID
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              VolumeSize: !Ref VolumeSize
+        IamInstanceProfile: !Ref InstanceProfile
+        UserData:
+            Fn::Base64:
+              #!/bin/bash
+              #Tagging:
+              InstanceID=$(curl --silent http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r .region)

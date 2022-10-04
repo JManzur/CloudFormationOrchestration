@@ -1,3 +1,7 @@
+# JManzur
+default.auto.tfvars
+*.terraform.lock*
+
 # Local .terraform directories
 **/.terraform/*
 

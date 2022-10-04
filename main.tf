@@ -3,9 +3,15 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 3.0"
+      version = "~> 4.0"
     }
   }
+}
+
+# Configure the AWS Provider
+provider "aws" {
+  region  = var.aws_region
+  profile = var.aws_profile
 }
 
 #Grabbing latest Linux 2 AMI
@@ -26,7 +32,7 @@ data "local_file" "ec2" {
 
 # Deploy CloudFormation Template
 resource "aws_cloudformation_stack" "ec2" {
-  name = "look-what-terraform-can-do"
+  name         = "look-what-terraform-can-do"
   capabilities = ["CAPABILITY_NAMED_IAM"]
 
   parameters = {
@@ -34,8 +40,8 @@ resource "aws_cloudformation_stack" "ec2" {
     InstanceType = "t2.micro"
     VolumeSize   = 10
     AMI          = data.aws_ami.linux2.id
-    Key          = "jmanzur"
-    SubnetID     = "subnet-05b71d10d038b9900"
+    Key          = var.ssh_key
+    SubnetID     = var.subnet_id
   }
 
   template_body = data.local_file.ec2.content
